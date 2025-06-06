@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZolDycksAdobeeApp</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>ZolDycksAdobeeApp Brand Kit Generator</h1>
+        <p>Upload an image lets seeeee!</p>
+
+        <input type="file" id="imageUpload" accept="image/*">
+        <button id="extractButton" disabled>Extract Styles</button>
+
+        <div id="results" class="hidden">
+            <h2>Extracted Colors:</h2>
+            <div id="colorPalette"></div>
+            <h2>Extracted Font Style:</h2>
+            <p id="fontStyle"></p>
+            <button id="applyToExpress">Apply to Express (Manual)</button>
+        </div>
+
+        <div id="loading" class="hidden">
+            <p>Extracting styles, please wait...</p>
+        </div>
+
+        <div id="error" class="hidden">
+            <p class="error-message"></p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
