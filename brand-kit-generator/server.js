@@ -1,102 +1,133 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs'); // Missing import
-const generateBrandPDF = require('/home/user/adobe-express-ai-assistant/brand-kit-generator/pdfGenerator.js');
+const fs = require('fs');
+const { generateBrandPDF } = require('./pdfGenerator');
 
 const app = express();
-const port = process.env.PORT || 3000; // Better port handling
+const port = process.env.PORT || 3000;
 
-// Create necessary directories if they don't exist
-[ 'uploads', 'generated', 'public' ].forEach(dir => {
+// Create necessary directories
+['uploads', 'generated', 'public'].forEach(dir => {
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir);
+    fs.mkdirSync(dir, { recursive: true });
   }
 });
 
-// Configure multer for file uploads
-const upload = multer({ 
-  dest: 'uploads/',
+// Configure multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB file size limit
+    fileSize: 10 * 1024 * 1024, // 10MB
+    files: 10
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
   }
 });
 
-// Serve static files - only need this once
+// Middleware
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API endpoint for PDF generation
+// API endpoint
 app.post('/api/generate-brand-kit', upload.array('images', 10), async (req, res) => {
   try {
+    // Validate files
     if (!req.files || req.files.length < 3) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: 'Please upload at least 3 images' 
+        error: 'Please upload at least 3 images'
       });
     }
 
-    // Process images (in a real app, you'd analyze them here)
+    // Create complete brand data structure
     const brandData = {
       brandName: req.body.brandName || "Extracted Brand",
       colors: {
-        primary: "#FF5733",
-        secondary: "#33FF57",
-        accent: "#3357FF"
+        primary: "#2A5CAA",
+        secondary: "#F4B223",
+        accent: "#E74C3C",
+        dark: "#2C3E50",
+        light: "#ECF0F1"
       },
       fonts: {
         heading: "Helvetica-Bold",
         body: "Helvetica"
       },
-      logoAnalysis: "Brand style extracted from uploaded images"
+      typography: {
+        lineHeight: 1.5
+      },
+      logoAnalysis: "Brand style extracted from uploaded images",
+      dateCreated: new Date().toLocaleDateString('en-ZA')
     };
 
     // Generate PDF
-    const pdfPath = path.join(__dirname, 'generated', `brand-kit-${Date.now()}.pdf`);
+    const pdfFilename = `brand-kit-${Date.now()}.pdf`;
+    const pdfPath = path.join(__dirname, 'generated', pdfFilename);
+    
     await generateBrandPDF(brandData, pdfPath);
 
-    // Send the PDF back
-    res.download(pdfPath, 'brand-kit.pdf', (err) => {
-      // Clean up files whether download succeeds or fails
-      req.files.forEach(file => {
-        try {
-          fs.unlinkSync(file.path);
-        } catch (err) {
-          console.error('Error deleting uploaded file:', err);
-        }
-      });
-      
-      try {
-        fs.unlinkSync(pdfPath); // Delete the generated PDF after sending
-      } catch (err) {
-        console.error('Error deleting generated PDF:', err);
-      }
-
-      if (err) {
-        console.error('Error sending PDF:', err);
-        if (!res.headersSent) {
-          res.status(500).json({ 
-            success: false,
-            error: 'Error downloading PDF' 
-          });
-        }
-      }
+    // Send file
+    res.download(pdfPath, pdfFilename, (err) => {
+      // Cleanup
+      cleanupFiles(req.files, pdfPath);
+      if (err) console.error('Download error:', err);
     });
 
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ 
+    console.error('Server error:', error);
+    cleanupFiles(req.files);
+    res.status(500).json({
       success: false,
-      error: 'Internal server error' 
+      error: process.env.NODE_ENV === 'development' 
+        ? error.message 
+        : 'Internal server error'
     });
   }
 });
 
+// Helper function for file cleanup
+function cleanupFiles(files = [], pdfPath = null) {
+  try {
+    if (files) {
+      files.forEach(file => {
+        try { fs.unlinkSync(file.path); } catch (e) {}
+      });
+    }
+    if (pdfPath) {
+      try { fs.unlinkSync(pdfPath); } catch (e) {}
+    }
+  } catch (err) {
+    console.error('Cleanup error:', err);
+  }
+}
+
 // Error handling middleware
 app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({
+      success: false,
+      error: err.message
+    });
+  }
   console.error(err.stack);
   res.status(500).json({
     success: false,
-    error: 'Something broke!'
+    error: 'Something went wrong!'
   });
 });
 
