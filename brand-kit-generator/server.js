@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs'); // Missing import
-const { generateBrandPDF } = require('./pdfGenerator');
+const generateBrandPDF = require('/home/user/adobe-express-ai-assistant/brand-kit-generator/pdfGenerator.js');
 
 const app = express();
 const port = process.env.PORT || 3000; // Better port handling

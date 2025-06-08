@@ -85,6 +85,8 @@ const mockBrandData = {
 };
 
 function generateBrandPDF(brandData, outputPath) {
+  return new Promise((resolve, reject) => {
+
   // Create output directory if it doesn't exist
   const outputDir = path.dirname(outputPath);
   if (!fs.existsSync(outputDir)) {
@@ -485,11 +487,22 @@ function generateBrandPDF(brandData, outputPath) {
        .stroke();
   }
 
-  doc.end();
+  stream.on('finish', () => {
+    console.log(`PDF created at ${outputPath}`);
+    resolve(outputPath);
+  });
 
+  stream.on('error', (err) => {
+    console.error(`Error writing PDF: ${err}`);
+    reject(err);
+  });
+
+  doc.end();
+});
+}
   // Helper functions for consistent headers
   function addSectionHeader(doc, text, color) {
-    doc.fontSize(22)
+    doc.fontSize(22).fillColor(color)
        .fillColor(color)
        .text(text, 50, 50);
     
@@ -502,17 +515,21 @@ function generateBrandPDF(brandData, outputPath) {
   }
   
   function addSubsectionHeader(doc, text) {
-    doc.fontSize(14)
+    doc.fontSize(14).fillColor('#333333')
        .fillColor('#333333')
        .text(text, { 
          underline: true,
          paragraphGap: 5
        });
   }
+
+// This part is for testing/demonstration when running this file directly
+// In a real application, you would likely import and use the function elsewhere
+if (require.main === module) {
+  const outputPath = path.join(__dirname, 'output', 'elpeap_brand_guidelines.pdf');
+  generateBrandPDF(mockBrandData, outputPath);
+
+  console.log(`Brand guidelines PDF generation initiated for: ${outputPath}`);
 }
 
-// Generate the PDF
-const outputPath = path.join(__dirname, 'output', 'elpeap_brand_guidelines.pdf');
-generateBrandPDF(mockBrandData, outputPath);
-
-console.log(`Brand guidelines PDF generated at: ${outputPath}`);
+module.exports = generateBrandPDF;
