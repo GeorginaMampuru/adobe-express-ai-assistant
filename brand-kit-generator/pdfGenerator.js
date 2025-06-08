@@ -1,30 +1,47 @@
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
+const path = require('path');
 
-// Comprehensive Mock Data
+// Enhanced Mock Data with more brand elements
 const mockBrandData = {
   brandName: "ELPEAP GROUP",
   tagline: "Innovating Tomorrow's Solutions Today",
   version: "1.0",
-  dateCreated: new Date().toLocaleDateString(),
+  dateCreated: new Date().toLocaleDateString('en-ZA', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  }),
   colors: {
     primary: "#2A5CAA",
     secondary: "#F4B223",
     accent: "#E74C3C",
     dark: "#2C3E50",
-    light: "#ECF0F1"
+    light: "#ECF0F1",
+    gradients: {
+      primary: ["#2A5CAA", "#3A7BDA"],
+      accent: ["#E74C3C", "#EB6F5E"]
+    }
   },
   fonts: {
     heading: "Helvetica-Bold",
     body: "Helvetica",
-    accent: "Helvetica-Oblique"
+    accent: "Helvetica-Oblique",
+    pairingExamples: [
+      "Helvetica-Bold + Helvetica",
+      "Helvetica-Bold + Georgia"
+    ]
   },
   logo: {
     analysis: "Modern, geometric style with clean lines representing innovation and stability. The triangular elements suggest growth and direction.",
     usage: {
       clearspace: "Minimum 20px clearance around logo",
       sizes: ["Full color", "Monochrome", "Reverse"],
-      incorrectUsage: ["Don't stretch", "Don't recolor", "Don't rotate"]
+      incorrectUsage: ["Don't stretch", "Don't recolor", "Don't rotate"],
+      placement: {
+        digital: "Top left corner",
+        print: "Minimum 10mm from edges"
+      }
     }
   },
   typography: {
@@ -36,23 +53,44 @@ const mockBrandData = {
     bodySizes: {
       normal: 14,
       small: 12
-    }
+    },
+    lineHeight: 1.5,
+    paragraphSpacing: 15
   },
   imagery: {
     style: "High-quality professional photography with warm tones",
-    composition: "Use of negative space, human elements, and technology"
+    composition: "Use of negative space, human elements, and technology",
+    examples: [
+      "Team collaboration shots",
+      "Technology close-ups",
+      "Abstract patterns"
+    ]
   },
   brandVoice: {
     tone: "Professional yet approachable",
-    attributes: ["Innovative", "Reliable", "Forward-thinking"]
+    attributes: ["Innovative", "Reliable", "Forward-thinking"],
+    messagingExamples: {
+      formal: "ELPEAP Group delivers cutting-edge solutions...",
+      casual: "We're excited to innovate with you..."
+    }
   },
   contact: {
     email: "brand@elpeapgroup.co.za",
-    phone: "078 140 7749"
+    phone: "078 140 7749",
+    social: {
+      linkedin: "linkedin.com/company/elpeap",
+      twitter: "@elpeap_group"
+    }
   }
 };
 
 function generateBrandPDF(brandData, outputPath) {
+  // Create output directory if it doesn't exist
+  const outputDir = path.dirname(outputPath);
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
   const doc = new PDFDocument({ 
     size: 'A4', 
     margin: 50,
@@ -60,7 +98,8 @@ function generateBrandPDF(brandData, outputPath) {
     info: {
       Title: `${brandData.brandName} Brand Guidelines`,
       Author: "ELPEAP Creative Team",
-      Keywords: "brand,guidelines,design"
+      Keywords: "brand,guidelines,design",
+      CreationDate: new Date()
     }
   });
 
@@ -68,68 +107,91 @@ function generateBrandPDF(brandData, outputPath) {
   doc.pipe(stream);
 
   // ========== COVER PAGE ==========
+  // Header background
   doc.fillColor(brandData.colors.primary)
      .rect(0, 0, doc.page.width, 120)
      .fill();
   
+  // Brand name
   doc.fillColor('#FFFFFF')
      .fontSize(28)
-     .text(brandData.brandName, 50, 50, { lineBreak: false });
+     .text(brandData.brandName, 50, 50, { 
+       lineBreak: false,
+       characterSpacing: 0.5 
+     });
   
+  // Tagline
   doc.fillColor(brandData.colors.secondary)
      .fontSize(16)
-     .text(brandData.tagline, 50, 85);
+     .text(brandData.tagline, 50, 85, {
+       characterSpacing: 0.2
+     });
   
+  // Version and date
   doc.fillColor('#333333')
-     .fontSize(12)
-     .text(`Version ${brandData.version} | ${brandData.dateCreated}`, 50, 750);
+     .fontSize(10)
+     .text(`Version ${brandData.version} | ${brandData.dateCreated}`, 50, 750, {
+       align: 'left'
+     });
   
   doc.addPage();
 
   // ========== TABLE OF CONTENTS ==========
-  doc.fontSize(18)
-     .fillColor(brandData.colors.primary)
-     .text('Table of Contents', 50, 50);
+  addSectionHeader(doc, 'Table of Contents', brandData.colors.primary);
   
+  const tocItems = [
+    { title: 'Introduction', page: 3 },
+    { title: 'Brand Colors', page: 4 },
+    { title: 'Typography', page: 5 },
+    { title: 'Logo Usage', page: 6 },
+    { title: 'Imagery Guidelines', page: 7 },
+    { title: 'Brand Voice', page: 8 },
+    { title: 'Contact Information', page: 9 }
+  ];
+
   doc.moveDown();
-  doc.fontSize(12)
-     .fillColor('#333333')
-     .text('1. Introduction..........................3', { indent: 20 })
-     .text('2. Brand Colors........................4', { indent: 20 })
-     .text('3. Typography..........................5', { indent: 20 })
-     .text('4. Logo Usage..........................6', { indent: 20 })
-     .text('5. Imagery Guidelines..................7', { indent: 20 })
-     .text('6. Brand Voice........................8', { indent: 20 })
-     .text('7. Contact Information................9', { indent: 20 });
+  tocItems.forEach(item => {
+    doc.fontSize(12)
+       .fillColor('#333333')
+       .text(`${item.title.padEnd(30, '.')}${item.page}`, { 
+         indent: 20,
+         paragraphGap: 5
+       });
+  });
   
   doc.addPage();
 
   // ========== INTRODUCTION ==========
-  doc.fontSize(22)
-     .fillColor(brandData.colors.primary)
-     .text('1. Introduction', 50, 50);
+  addSectionHeader(doc, '1. Introduction', brandData.colors.primary);
   
   doc.moveDown();
   doc.fontSize(12)
      .fillColor('#333333')
      .text(`Welcome to the ${brandData.brandName} Brand Guidelines. This document serves as the foundation for all visual and verbal communications representing our brand.`, {
-       lineGap: 5,
-       paragraphGap: 10
+       lineGap: brandData.typography.lineHeight,
+       paragraphGap: brandData.typography.paragraphSpacing
      })
-     .text(`Our brand identity is built on the principles of ${brandData.brandVoice.attributes.join(', ')}. These guidelines ensure consistency across all touchpoints.`, {
-       lineGap: 5
+     .text(`Our brand identity is built on the principles of ${brandData.brandVoice.attributes.join(', ')}. These guidelines ensure consistency across all touchpoints including:`, {
+       lineGap: brandData.typography.lineHeight
      });
+  
+  doc.moveDown();
+  [
+    'Digital platforms (website, social media)',
+    'Print materials (brochures, business cards)',
+    'Presentations and marketing collateral',
+    'Product packaging and merchandise'
+  ].forEach(item => {
+    doc.text(`• ${item}`, { indent: 30 });
+  });
   
   doc.addPage();
 
   // ========== BRAND COLORS ==========
-  doc.fontSize(22)
-     .fillColor(brandData.colors.primary)
-     .text('2. Brand Colors', 50, 50);
+  addSectionHeader(doc, '2. Brand Colors', brandData.colors.primary);
   
   doc.moveDown();
-  doc.fontSize(14)
-     .text('Primary Color Palette', { underline: true });
+  addSubsectionHeader(doc, 'Primary Color Palette');
   
   doc.moveDown(0.5);
   const colors = brandData.colors;
@@ -138,24 +200,32 @@ function generateBrandPDF(brandData, outputPath) {
   const startX = 50;
   const startY = doc.y;
 
-  Object.keys(colors).forEach((key, i) => {
+  // Display color swatches in a grid
+  Object.keys(colors).filter(key => !['gradients'].includes(key)).forEach((key, i) => {
     const x = startX + (i % 3 * (squareSize + gap + 120));
-    const y = startY + Math.floor(i / 3) * (squareSize + gap);
+    const y = startY + Math.floor(i / 3) * (squareSize + gap + 30);
     
+    // Color swatch
     doc.rect(x, y, squareSize, squareSize)
        .fill(colors[key]);
     
+    // Color name and value
     doc.fontSize(10)
        .fillColor('#333333')
-       .text(key.toUpperCase(), x, y + squareSize + 10)
-       .text(colors[key], x, y + squareSize + 25);
+       .text(key.toUpperCase(), x, y + squareSize + 10, {
+         width: squareSize,
+         align: 'center'
+       })
+       .text(colors[key], x, y + squareSize + 25, {
+         width: squareSize,
+         align: 'center'
+       });
   });
 
   doc.moveDown(6);
 
   // Color usage guidelines
-  doc.fontSize(14)
-     .text('Color Application', { underline: true });
+  addSubsectionHeader(doc, 'Color Application');
   
   doc.moveDown();
   doc.fontSize(12)
@@ -173,18 +243,25 @@ function generateBrandPDF(brandData, outputPath) {
      .fillColor(brandData.colors.accent)
      .text(' Use sparingly for alerts and important notices', { underline: true });
   
+  // Add gradient examples if they exist
+  if (brandData.colors.gradients) {
+    doc.moveDown(2);
+    addSubsectionHeader(doc, 'Gradient Applications');
+    
+    doc.moveDown();
+    Object.keys(brandData.colors.gradients).forEach(gradient => {
+      const [start, end] = brandData.colors.gradients[gradient];
+      doc.text(`• ${gradient} gradient: ${start} → ${end}`, { indent: 30 });
+    });
+  }
+  
   doc.addPage();
 
   // ========== TYPOGRAPHY ==========
-  doc.fontSize(22)
-     .fillColor(brandData.colors.primary)
-     .text('3. Typography', 50, 50);
+  addSectionHeader(doc, '3. Typography', brandData.colors.primary);
   
   doc.moveDown();
-  
-  // Heading styles
-  doc.fontSize(14)
-     .text('Heading Styles', { underline: true });
+  addSubsectionHeader(doc, 'Heading Styles');
   
   doc.moveDown();
   doc.font(brandData.fonts.heading)
@@ -205,68 +282,75 @@ function generateBrandPDF(brandData, outputPath) {
   doc.moveDown(2);
   
   // Body text
-  doc.fontSize(14)
-     .fillColor('#333333')
-     .text('Body Text', { underline: true });
+  addSubsectionHeader(doc, 'Body Text');
   
   doc.moveDown();
   doc.font(brandData.fonts.body)
      .fontSize(brandData.typography.bodySizes.normal)
-     .text('This is normal body text. Use for paragraphs and general content.', { indent: 20 });
+     .text('This is normal body text. Use for paragraphs and general content. Maintain consistent line height and spacing for optimal readability.', { 
+       indent: 20,
+       lineGap: brandData.typography.lineHeight
+     });
   
   doc.moveDown();
   doc.font(brandData.fonts.body)
      .fontSize(brandData.typography.bodySizes.small)
-     .text('This is small body text. Use for captions and secondary information.', { indent: 20 });
+     .text('This is small body text. Use for captions, footnotes, and secondary information. Should be legible at smaller sizes.', { 
+       indent: 20,
+       lineGap: brandData.typography.lineHeight
+     });
   
   doc.moveDown(2);
   
   // Font pairing examples
-  doc.fontSize(14)
-     .text('Recommended Pairings', { underline: true });
-  
-  doc.moveDown();
-  doc.font(brandData.fonts.heading)
-     .fontSize(16)
-     .fillColor(brandData.colors.primary)
-     .text('Heading in Primary Color', { indent: 20 });
-  
-  doc.font(brandData.fonts.body)
-     .fontSize(12)
-     .fillColor('#333333')
-     .text('Paired with body text in dark gray for optimal readability and visual hierarchy.', { indent: 20 });
+  if (brandData.fonts.pairingExamples) {
+    addSubsectionHeader(doc, 'Recommended Pairings');
+    
+    doc.moveDown();
+    brandData.fonts.pairingExamples.forEach(pairing => {
+      doc.text(`• ${pairing}`, { indent: 30 });
+    });
+  }
   
   doc.addPage();
 
   // ========== LOGO USAGE ==========
-  doc.fontSize(22)
-     .fillColor(brandData.colors.primary)
-     .text('4. Logo Usage', 50, 50);
+  addSectionHeader(doc, '4. Logo Usage', brandData.colors.primary);
   
   doc.moveDown();
   doc.fontSize(12)
-     .text(brandData.logo.analysis, { lineGap: 5 });
+     .text(brandData.logo.analysis, { 
+       lineGap: brandData.typography.lineHeight 
+     });
   
   doc.moveDown();
-  doc.fontSize(14)
-     .text('Clear Space Requirements', { underline: true });
+  addSubsectionHeader(doc, 'Clear Space Requirements');
   
   doc.moveDown();
   doc.fontSize(12)
-     .text(`Maintain minimum ${brandData.logo.usage.clearspace} around the logo at all times.`);
+     .text(`Maintain minimum ${brandData.logo.usage.clearspace} around the logo at all times. This ensures visibility and prevents visual clutter.`);
   
   doc.moveDown(2);
-  doc.fontSize(14)
-     .text('Correct Usage', { underline: true });
+  addSubsectionHeader(doc, 'Correct Usage');
   
   doc.moveDown();
   brandData.logo.usage.sizes.forEach(size => {
     doc.text(`• ${size} version`, { indent: 30 });
   });
   
+  // Logo placement guidelines
+  if (brandData.logo.usage.placement) {
+    doc.moveDown();
+    addSubsectionHeader(doc, 'Placement Guidelines');
+    
+    doc.moveDown();
+    Object.keys(brandData.logo.usage.placement).forEach(medium => {
+      doc.text(`• ${medium}: ${brandData.logo.usage.placement[medium]}`, { indent: 30 });
+    });
+  }
+  
   doc.moveDown(2);
-  doc.fontSize(14)
-     .text('Incorrect Usage', { underline: true });
+  addSubsectionHeader(doc, 'Incorrect Usage');
   
   doc.moveDown();
   brandData.logo.usage.incorrectUsage.forEach(usage => {
@@ -276,81 +360,159 @@ function generateBrandPDF(brandData, outputPath) {
   doc.addPage();
 
   // ========== IMAGERY GUIDELINES ==========
-  doc.fontSize(22)
-     .fillColor(brandData.colors.primary)
-     .text('5. Imagery Guidelines', 50, 50);
+  addSectionHeader(doc, '5. Imagery Guidelines', brandData.colors.primary);
   
   doc.moveDown();
-  doc.fontSize(14)
-     .text('Style', { underline: true });
+  addSubsectionHeader(doc, 'Style');
   
   doc.moveDown();
   doc.fontSize(12)
-     .text(brandData.imagery.style, { lineGap: 5 });
+     .text(brandData.imagery.style, { 
+       lineGap: brandData.typography.lineHeight 
+     });
   
   doc.moveDown();
-  doc.fontSize(14)
-     .text('Composition', { underline: true });
+  addSubsectionHeader(doc, 'Composition');
   
   doc.moveDown();
   doc.fontSize(12)
-     .text(brandData.imagery.composition, { lineGap: 5 });
+     .text(brandData.imagery.composition, { 
+       lineGap: brandData.typography.lineHeight 
+     });
+  
+  // Image examples
+  if (brandData.imagery.examples) {
+    doc.moveDown();
+    addSubsectionHeader(doc, 'Recommended Subjects');
+    
+    doc.moveDown();
+    brandData.imagery.examples.forEach(example => {
+      doc.text(`• ${example}`, { indent: 30 });
+    });
+  }
   
   doc.addPage();
 
   // ========== BRAND VOICE ==========
-  doc.fontSize(22)
-     .fillColor(brandData.colors.primary)
-     .text('6. Brand Voice', 50, 50);
+  addSectionHeader(doc, '6. Brand Voice', brandData.colors.primary);
   
   doc.moveDown();
-  doc.fontSize(14)
-     .text('Tone', { underline: true });
+  addSubsectionHeader(doc, 'Tone');
   
   doc.moveDown();
   doc.fontSize(12)
-     .text(brandData.brandVoice.tone, { lineGap: 5 });
+     .text(brandData.brandVoice.tone, { 
+       lineGap: brandData.typography.lineHeight 
+     });
   
   doc.moveDown();
-  doc.fontSize(14)
-     .text('Key Attributes', { underline: true });
+  addSubsectionHeader(doc, 'Key Attributes');
   
   doc.moveDown();
   brandData.brandVoice.attributes.forEach(attr => {
     doc.text(`• ${attr}`, { indent: 30 });
   });
   
+  // Messaging examples
+  if (brandData.brandVoice.messagingExamples) {
+    doc.moveDown();
+    addSubsectionHeader(doc, 'Messaging Examples');
+    
+    doc.moveDown();
+    Object.keys(brandData.brandVoice.messagingExamples).forEach(context => {
+      doc.fontSize(12)
+         .fillColor('#333333')
+         .text(`${context}:`, { indent: 20 });
+      
+      doc.fontSize(11)
+         .fillColor('#555555')
+         .text(`"${brandData.brandVoice.messagingExamples[context]}"`, {
+           indent: 40,
+           paragraphGap: 10
+         });
+    });
+  }
+  
   doc.addPage();
 
   // ========== CONTACT INFORMATION ==========
-  doc.fontSize(22)
-     .fillColor(brandData.colors.primary)
-     .text('7. Contact Information', 50, 50);
+  addSectionHeader(doc, '7. Contact Information', brandData.colors.primary);
   
   doc.moveDown();
-  doc.fontSize(14)
-     .text('Brand Team', { underline: true });
+  addSubsectionHeader(doc, 'Brand Team');
   
   doc.moveDown();
   doc.fontSize(12)
-     .text(`For brand-related inquiries and asset requests, please contact:`, { lineGap: 5 });
+     .text(`For brand-related inquiries and asset requests, please contact:`, { 
+       lineGap: brandData.typography.lineHeight 
+     });
   
   doc.moveDown();
   doc.text(`Email: ${brandData.contact.email}`);
   doc.text(`Phone: ${brandData.contact.phone}`);
   
+  // Social media contacts
+  if (brandData.contact.social) {
+    doc.moveDown();
+    addSubsectionHeader(doc, 'Social Media');
+    
+    doc.moveDown();
+    Object.keys(brandData.contact.social).forEach(platform => {
+      doc.text(`• ${platform.charAt(0).toUpperCase() + platform.slice(1)}: ${brandData.contact.social[platform]}`);
+    });
+  }
+  
   // ========== PAGE NUMBERS ==========
   const range = doc.bufferedPageRange();
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(i);
+    
+    // Footer with page numbers
     doc.fontSize(10)
        .fillColor('#666666')
-       .text(`${brandData.brandName} Brand Guidelines`, 50, 800)
-       .text(`Page ${i + 1} of ${range.count}`, 500, 800, { align: 'right' });
+       .text(`${brandData.brandName} Brand Guidelines`, 50, 800, {
+         align: 'left'
+       })
+       .text(`Page ${i + 1} of ${range.count}`, 500, 800, { 
+         align: 'right' 
+       });
+    
+    // Add subtle border
+    doc.moveTo(50, 790)
+       .lineTo(550, 790)
+       .lineWidth(0.5)
+       .strokeColor('#CCCCCC')
+       .stroke();
   }
 
   doc.end();
+
+  // Helper functions for consistent headers
+  function addSectionHeader(doc, text, color) {
+    doc.fontSize(22)
+       .fillColor(color)
+       .text(text, 50, 50);
+    
+    // Add decorative underline
+    doc.moveTo(50, 75)
+       .lineTo(150, 75)
+       .lineWidth(2)
+       .strokeColor(color)
+       .stroke();
+  }
+  
+  function addSubsectionHeader(doc, text) {
+    doc.fontSize(14)
+       .fillColor('#333333')
+       .text(text, { 
+         underline: true,
+         paragraphGap: 5
+       });
+  }
 }
 
-generateBrandPDF(mockBrandData, './elpeap_brand_guidelines.pdf');
-console.log('Brand guidelines PDF generated successfully!');
+// Generate the PDF
+const outputPath = path.join(__dirname, 'output', 'elpeap_brand_guidelines.pdf');
+generateBrandPDF(mockBrandData, outputPath);
+
+console.log(`Brand guidelines PDF generated at: ${outputPath}`);
