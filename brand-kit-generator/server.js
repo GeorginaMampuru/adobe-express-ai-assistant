@@ -7,25 +7,14 @@ const { generateBrandPDF } = require('./pdfGenerator');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Create necessary directories
+// Configure directories
 ['uploads', 'generated', 'public'].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Configure multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
-});
-
+// Configure Multer for file uploads
 const upload = multer({
-  storage: storage,
+  dest: 'uploads/',
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
     files: 10
@@ -43,36 +32,36 @@ const upload = multer({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API endpoint
+// API Endpoint
 app.post('/api/generate-brand-kit', upload.array('images', 10), async (req, res) => {
   try {
-    // Validate files
     if (!req.files || req.files.length < 3) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please upload at least 3 images'
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Please upload at least 3 images' 
       });
     }
 
-    // Create complete brand data structure
+    // Extract form data
     const brandData = {
-      brandName: req.body.brandName || "Extracted Brand",
+      brandName: req.body.brandName || 'Our Brand',
+      tagline: req.body.tagline || 'Innovating tomorrow',
       colors: {
-        primary: "#2A5CAA",
-        secondary: "#F4B223",
-        accent: "#E74C3C",
-        dark: "#2C3E50",
-        light: "#ECF0F1"
+        primary: req.body.primaryColor || '#2A5CAA',
+        secondary: req.body.secondaryColor || '#F4B223',
+        accent: '#E74C3C',
+        dark: '#2C3E50',
+        light: '#ECF0F1'
       },
       fonts: {
         heading: "Helvetica-Bold",
         body: "Helvetica"
       },
-      typography: {
-        lineHeight: 1.5
-      },
-      logoAnalysis: "Brand style extracted from uploaded images",
-      dateCreated: new Date().toLocaleDateString('en-ZA')
+      dateCreated: new Date().toLocaleDateString('en-ZA', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
     };
 
     // Generate PDF
@@ -81,9 +70,9 @@ app.post('/api/generate-brand-kit', upload.array('images', 10), async (req, res)
     
     await generateBrandPDF(brandData, pdfPath);
 
-    // Send file
+    // Stream the PDF back
     res.download(pdfPath, pdfFilename, (err) => {
-      // Cleanup
+      // Cleanup files
       cleanupFiles(req.files, pdfPath);
       if (err) console.error('Download error:', err);
     });
@@ -91,7 +80,7 @@ app.post('/api/generate-brand-kit', upload.array('images', 10), async (req, res)
   } catch (error) {
     console.error('Server error:', error);
     cleanupFiles(req.files);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       error: process.env.NODE_ENV === 'development' 
         ? error.message 
@@ -103,14 +92,8 @@ app.post('/api/generate-brand-kit', upload.array('images', 10), async (req, res)
 // Helper function for file cleanup
 function cleanupFiles(files = [], pdfPath = null) {
   try {
-    if (files) {
-      files.forEach(file => {
-        try { fs.unlinkSync(file.path); } catch (e) {}
-      });
-    }
-    if (pdfPath) {
-      try { fs.unlinkSync(pdfPath); } catch (e) {}
-    }
+    files?.forEach(file => fs.unlinkSync(file.path));
+    if (pdfPath) fs.unlinkSync(pdfPath);
   } catch (err) {
     console.error('Cleanup error:', err);
   }
@@ -119,15 +102,15 @@ function cleanupFiles(files = [], pdfPath = null) {
 // Error handling middleware
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
-    return res.status(400).json({
-      success: false,
-      error: err.message
+    return res.status(400).json({ 
+      success: false, 
+      error: err.message 
     });
   }
   console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    error: 'Something went wrong!'
+  res.status(500).json({ 
+    success: false, 
+    error: 'Something went wrong!' 
   });
 });
 

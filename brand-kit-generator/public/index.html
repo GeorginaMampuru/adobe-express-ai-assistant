@@ -15,6 +15,11 @@
             line-height: 1.6;
         }
         
+        h1 {
+            color: #2A5CAA;
+            margin-bottom: 0.5rem;
+        }
+        
         .upload-area {
             border: 2px dashed #ccc;
             border-radius: 8px;
@@ -72,16 +77,6 @@
             border-radius: 4px;
             overflow: hidden;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        
-        .preview-progress {
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 4px;
-            background: #4CAF50;
-            width: 0%;
-            transition: width 0.3s ease;
         }
         
         .preview img {
@@ -146,6 +141,45 @@
         .preview-item.error {
             border: 2px solid #d32f2f;
         }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .form-group input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        
+        .form-group input[type="color"] {
+            width: 60px;
+            height: 40px;
+            padding: 2px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .color-inputs {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .color-input {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -163,8 +197,27 @@
     <div class="preview" id="imagePreview"></div>
     
     <div class="form-group">
-        <label for="brandName">Brand Name (optional):</label>
+        <label for="brandName">Brand Name:</label>
         <input type="text" id="brandName" placeholder="Your brand name">
+    </div>
+    
+    <div class="form-group">
+        <label for="brandTagline">Tagline:</label>
+        <input type="text" id="brandTagline" placeholder="Your brand tagline">
+    </div>
+    
+    <div class="form-group">
+        <label>Brand Colors:</label>
+        <div class="color-inputs">
+            <div class="color-input">
+                <input type="color" id="primaryColor" value="#2A5CAA">
+                <label for="primaryColor">Primary</label>
+            </div>
+            <div class="color-input">
+                <input type="color" id="secondaryColor" value="#F4B223">
+                <label for="secondaryColor">Secondary</label>
+            </div>
+        </div>
     </div>
     
     <button id="generateBtn" disabled>Generate Brand Kit</button>
