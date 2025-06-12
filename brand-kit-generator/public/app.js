@@ -5,6 +5,11 @@ const getElement = (id) => {
     return el;
 };
 
+// Constants
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_COUNT = 10;
+
+// Get elements
 const dropZone = getElement('dropZone');
 const fileInput = getElement('fileInput');
 const imagePreview = getElement('imagePreview');
@@ -16,6 +21,7 @@ const brandNameInput = getElement('brandName') || { value: '' };
 const brandTaglineInput = getElement('brandTagline') || { value: '' };
 const primaryColorInput = getElement('primaryColor') || { value: '#2A5CAA' };
 const secondaryColorInput = getElement('secondaryColor') || { value: '#F4B223' };
+const fileSizeWarning = getElement('fileSizeWarning') || { style: { display: '' } };
 
 // Check for essential elements
 if (!dropZone || !fileInput || !generateBtn) {
@@ -67,12 +73,19 @@ if (!dropZone || !fileInput || !generateBtn) {
     function handleFiles(files) {
         if (!files || files.length === 0) return;
 
-        const validFiles = Array.from(files).filter(file => 
-            file.type.startsWith('image/') && 
-            ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
-        );
+        const validFiles = Array.from(files).filter(file => {
+            const isValidType = file.type.startsWith('image/') && 
+                              ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+            const isValidSize = file.size <= MAX_FILE_SIZE;
+            
+            if (!isValidSize) {
+                showStatus(`File ${file.name} exceeds 10MB limit`, 'error', 5000);
+            }
+            
+            return isValidType && isValidSize;
+        }).slice(0, MAX_FILE_COUNT);
         
-        uploadedFiles = validFiles.slice(0, 10);
+        uploadedFiles = validFiles;
         updateFileDisplay();
     }
 
@@ -84,6 +97,12 @@ if (!dropZone || !fileInput || !generateBtn) {
         if (fileCount) {
             fileCount.textContent = `${uploadedFiles.length} file${uploadedFiles.length !== 1 ? 's' : ''} selected`;
             fileCount.style.display = uploadedFiles.length ? 'block' : 'none';
+        }
+        
+        // Show/hide size warning
+        if (fileSizeWarning) {
+            const hasLargeFiles = uploadedFiles.some(file => file.size > MAX_FILE_SIZE);
+            fileSizeWarning.style.display = hasLargeFiles ? 'block' : 'none';
         }
         
         if (uploadedFiles.length < 3) {
@@ -98,6 +117,12 @@ if (!dropZone || !fileInput || !generateBtn) {
         uploadedFiles.forEach((file, index) => {
             const reader = new FileReader();
             const previewItem = createPreviewItem(file, index);
+            
+            // Add file size info
+            const sizeInfo = document.createElement('div');
+            sizeInfo.className = 'file-size-info';
+            sizeInfo.textContent = `${(file.size / 1024 / 1024).toFixed(1)}MB`;
+            previewItem.appendChild(sizeInfo);
             
             reader.onload = (e) => {
                 const img = previewItem.querySelector('img');
@@ -133,6 +158,13 @@ if (!dropZone || !fileInput || !generateBtn) {
     async function generateBrandKit() {
         if (uploadedFiles.length < 3) return;
         
+        // Check for oversized files before upload
+        const oversizedFiles = uploadedFiles.filter(file => file.size > MAX_FILE_SIZE);
+        if (oversizedFiles.length > 0) {
+            showStatus(`Some files exceed 10MB limit: ${oversizedFiles.map(f => f.name).join(', ')}`, 'error');
+            return;
+        }
+        
         showLoading(true);
         
         try {
@@ -152,7 +184,10 @@ if (!dropZone || !fileInput || !generateBtn) {
             
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
-                throw new Error(error.error || 'Failed to generate brand kit');
+                const errorMsg = error.error || 'Failed to generate brand kit';
+                throw new Error(errorMsg.includes('File too large') 
+                    ? 'One or more files exceed 10MB limit' 
+                    : errorMsg);
             }
             
             const blob = await response.blob();
@@ -196,19 +231,19 @@ if (!dropZone || !fileInput || !generateBtn) {
         }
     }
 
-    function showStatus(message, type) {
+    function showStatus(message, type, timeout = 5000) {
         if (!statusMessage) return;
         
         statusMessage.textContent = message;
         statusMessage.className = `status ${type}`;
         
-        if (type === 'success') {
+        if (type === 'success' || timeout) {
             setTimeout(() => {
                 if (statusMessage.textContent === message) {
                     statusMessage.textContent = '';
                     statusMessage.className = 'status';
                 }
-            }, 5000);
+            }, timeout);
         }
     }
 }
