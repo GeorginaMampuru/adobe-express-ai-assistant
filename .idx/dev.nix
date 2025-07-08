@@ -1,6 +1,7 @@
+
 # To learn more about how to use Nix to configure your environment
 # see: https://firebase.google.com/docs/studio/customize-workspace
-{ pkgs, ... }: {
+{ pkgs }: {
   # Which nixpkgs channel to use.
   channel = "stable-24.05"; # or "unstable"
 
@@ -10,10 +11,16 @@
     pkgs.python311
     pkgs.python311Packages.pip
     pkgs.nodejs_20
-    pkgs.python311Packages.opencv
     pkgs.nodePackages.nodemon
+    pkgs.docker
+    pkgs.python39
+    pkgs.opencv4
+
   ];
 
+ env = {
+    PYTHONPATH = "${pkgs.opencv4}/lib/python3.11/site-packages";
+  };
   # Sets environment variables in the workspace
   env = {};
   idx = {

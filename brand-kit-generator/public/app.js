@@ -1,243 +1,367 @@
-// DOM Elements with null checks
-const getElement = (id) => {
-    const el = document.getElementById(id);
-    if (!el) console.warn(`Element with ID ${id} not found`);
-    return el;
+// Enhanced DOM utility with caching
+const DOM = {
+    elements: {},
+    get(id) {
+        if (!this.elements[id]) {
+            const el = document.getElementById(id);
+            if (!el) console.warn(`Element with ID ${id} not found`);
+            this.elements[id] = el || null;
+        }
+        return this.elements[id];
+    },
+    safeValue(id, defaultValue = '') {
+        const el = this.get(id);
+        return el ? el.value.trim() : defaultValue;
+    }
 };
 
 // Constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILE_COUNT = 10;
+const VALID_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const DEFAULT_COLORS = {
+    primary: '#2A5CAA',
+    secondary: '#F4B223',
+    accent: '#E74C3C'
+};
 
-// Get elements
-const dropZone = getElement('dropZone');
-const fileInput = getElement('fileInput');
-const imagePreview = getElement('imagePreview');
-const generateBtn = getElement('generateBtn');
-const loadingIndicator = getElement('loadingIndicator');
-const statusMessage = getElement('statusMessage');
-const fileCount = getElement('fileCount');
-const brandNameInput = getElement('brandName') || { value: '' };
-const brandTaglineInput = getElement('brandTagline') || { value: '' };
-const primaryColorInput = getElement('primaryColor') || { value: '#2A5CAA' };
-const secondaryColorInput = getElement('secondaryColor') || { value: '#F4B223' };
-const fileSizeWarning = getElement('fileSizeWarning') || { style: { display: '' } };
+// State management
+const AppState = {
+    uploadedFiles: [],
+    isProcessing: false,
+    init() {
+        // Initialize essential elements
+        if (!this.checkEssentialElements()) return false;
 
-// Check for essential elements
-if (!dropZone || !fileInput || !generateBtn) {
-    console.error('Essential elements missing from page');
-    if (statusMessage) {
-        statusMessage.textContent = 'Error: Page elements missing. Please reload.';
-        statusMessage.className = 'status error';
-    }
-} else {
-    // Store uploaded files
-    let uploadedFiles = [];
-
-    // Event Listeners
-    dropZone.addEventListener('dragover', handleDragOver);
-    dropZone.addEventListener('dragleave', handleDragLeave);
-    dropZone.addEventListener('drop', handleDrop);
-    dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', handleFileSelect);
-    generateBtn.addEventListener('click', generateBrandKit);
-    document.addEventListener('paste', handlePaste);
-
-    // Functions
-    function handleDragOver(e) {
+        // Set up event listeners
+        this.setupEventListeners();
+        return true;
+    },
+    checkEssentialElements() {
+        const requiredElements = ['dropZone', 'fileInput', 'generateBtn', 'colorAnalysisBtn', 'fontAnalysisBtn'];
+        const missingElements = requiredElements.filter(id => !DOM.get(id));
+        
+        if (missingElements.length > 0) {
+            console.error('Missing essential elements:', missingElements);
+            this.showStatus('Error: Critical components missing. Please reload.', 'error', 0);
+            return false;
+        }
+        return true;
+    },
+    setupEventListeners() {
+        const { dropZone, fileInput, generateBtn, colorAnalysisBtn, fontAnalysisBtn } = DOM.elements;
+        
+        dropZone.addEventListener('dragover', this.handleDragOver);
+        dropZone.addEventListener('dragleave', this.handleDragLeave);
+        dropZone.addEventListener('drop', this.handleDrop);
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', this.handleFileSelect.bind(this));
+        generateBtn.addEventListener('click', this.generateBrandKit.bind(this));
+        document.addEventListener('paste', this.handlePaste.bind(this));
+        
+        if (colorAnalysisBtn) {
+            colorAnalysisBtn.addEventListener('click', this.analyzeColors.bind(this));
+        }
+        if (fontAnalysisBtn) {
+            fontAnalysisBtn.addEventListener('click', this.analyzeFonts.bind(this));
+        }
+    },
+    handleDragOver(e) {
         e.preventDefault();
-        dropZone.classList.add('active');
-    }
-
-    function handleDragLeave() {
-        dropZone.classList.remove('active');
-    }
-
-    function handleDrop(e) {
+        DOM.get('dropZone').classList.add('active');
+    },
+    handleDragLeave() {
+        DOM.get('dropZone').classList.remove('active');
+    },
+    handleDrop(e) {
         e.preventDefault();
-        handleDragLeave();
-        handleFiles(e.dataTransfer.files);
-    }
-
-    function handleFileSelect() {
-        handleFiles(fileInput.files);
-    }
-
-    function handlePaste(e) {
+        this.handleDragLeave();
+        this.handleFiles(e.dataTransfer.files);
+    },
+    handleFileSelect() {
+        this.handleFiles(DOM.get('fileInput').files);
+    },
+    handlePaste(e) {
         if (e.clipboardData.files.length > 0) {
-            handleFiles(e.clipboardData.files);
+            this.handleFiles(e.clipboardData.files);
             e.preventDefault();
         }
-    }
-
-    function handleFiles(files) {
+    },
+    handleFiles(files) {
         if (!files || files.length === 0) return;
 
-        const validFiles = Array.from(files).filter(file => {
-            const isValidType = file.type.startsWith('image/') && 
-                              ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
-            const isValidSize = file.size <= MAX_FILE_SIZE;
-            
-            if (!isValidSize) {
-                showStatus(`File ${file.name} exceeds 10MB limit`, 'error', 5000);
-            }
-            
-            return isValidType && isValidSize;
-        }).slice(0, MAX_FILE_COUNT);
+        const validFiles = Array.from(files)
+            .filter(file => this.validateFile(file))
+            .slice(0, MAX_FILE_COUNT);
         
-        uploadedFiles = validFiles;
-        updateFileDisplay();
-    }
-
-    function updateFileDisplay() {
-        if (!imagePreview) return;
+        this.uploadedFiles = validFiles;
+        this.updateUI();
+    },
+    validateFile(file) {
+        const isValidType = VALID_IMAGE_TYPES.includes(file.type);
+        const isValidSize = file.size <= MAX_FILE_SIZE;
         
-        imagePreview.innerHTML = '';
+        if (!isValidType) {
+            this.showStatus(`Unsupported file type: ${file.name}`, 'error');
+        }
+        if (!isValidSize) {
+            this.showStatus(`File too large (max 10MB): ${file.name}`, 'error');
+        }
         
+        return isValidType && isValidSize;
+    },
+    updateUI() {
+        console.log('updateUI called, uploadedFiles.length:', this.uploadedFiles.length);
+        const imagePreview = DOM.get('imagePreview');
+        const fileCount = DOM.get('fileCount');
+        const generateBtn = DOM.get('generateBtn');
+        
+        // Clear existing previews
+        if (imagePreview) imagePreview.innerHTML = '';
+        
+        // Update file count display
         if (fileCount) {
-            fileCount.textContent = `${uploadedFiles.length} file${uploadedFiles.length !== 1 ? 's' : ''} selected`;
-            fileCount.style.display = uploadedFiles.length ? 'block' : 'none';
+            fileCount.textContent = `${this.uploadedFiles.length} file${this.uploadedFiles.length !== 1 ? 's' : ''}`;
+            fileCount.style.display = this.uploadedFiles.length ? 'block' : 'none';
         }
         
-        // Show/hide size warning
-        if (fileSizeWarning) {
-            const hasLargeFiles = uploadedFiles.some(file => file.size > MAX_FILE_SIZE);
-            fileSizeWarning.style.display = hasLargeFiles ? 'block' : 'none';
-        }
+        // Update analysis buttons
+        this.toggleAnalysisButtons(this.uploadedFiles.length > 0);
         
-        if (uploadedFiles.length < 3) {
-            showStatus('Please upload at least 3 images (JPEG, PNG, or WebP)', 'error');
+        // Check minimum file requirement
+        if (this.uploadedFiles.length < 3) {
+            this.showStatus('Upload at least 3 images (JPEG, PNG, or WebP)', 'error');
             if (generateBtn) generateBtn.disabled = true;
             return;
         }
         
-        showStatus(`${uploadedFiles.length} images ready for processing`, 'success');
-        if (generateBtn) generateBtn.disabled = false;
+        // Process files for preview
+        this.processFilePreviews();
+    },
+    toggleAnalysisButtons(enabled) {
+        console.log('toggleAnalysisButtons called with enabled:', enabled, 'DOM.elements:', DOM.elements);
+        const { colorAnalysisBtn, fontAnalysisBtn } = DOM.elements;
+        if (colorAnalysisBtn) colorAnalysisBtn.disabled = !enabled;
+        if (fontAnalysisBtn) fontAnalysisBtn.disabled = !enabled;
+    },
+    async processFilePreviews() {
+        const imagePreview = DOM.get('imagePreview');
+        if (!imagePreview) return;
         
-        uploadedFiles.forEach((file, index) => {
-            const reader = new FileReader();
-            const previewItem = createPreviewItem(file, index);
-            
-            // Add file size info
-            const sizeInfo = document.createElement('div');
-            sizeInfo.className = 'file-size-info';
-            sizeInfo.textContent = `${(file.size / 1024 / 1024).toFixed(1)}MB`;
-            previewItem.appendChild(sizeInfo);
-            
-            reader.onload = (e) => {
+        this.showStatus(`${this.uploadedFiles.length} images ready`, 'success');
+        DOM.get('generateBtn').disabled = false;
+        
+        // Process each file for preview
+        await Promise.all(this.uploadedFiles.map(async (file, index) => {
+            try {
+                const previewItem = this.createPreviewItem(file, index);
+                const imgSrc = await this.readFileAsDataURL(file);
+                
                 const img = previewItem.querySelector('img');
-                if (img) img.src = e.target.result;
-            };
-            
-            reader.onerror = () => {
-                previewItem.classList.add('error');
-                showStatus(`Error loading ${file.name}`, 'error');
-            };
-            
-            reader.readAsDataURL(file);
-        });
-    }
-
-    function createPreviewItem(file, index) {
+                if (img) img.src = imgSrc;
+                
+                // Add file metadata
+                const sizeInfo = document.createElement('div');
+                sizeInfo.className = 'file-meta';
+                sizeInfo.innerHTML = `
+                    <span>${(file.size / 1024 / 1024).toFixed(1)}MB</span>
+                    <span>${file.type.split('/')[1].toUpperCase()}</span>
+                `;
+                previewItem.appendChild(sizeInfo);
+                
+            } catch (error) {
+                console.error('Error processing file preview:', error);
+            }
+        }));
+    },
+    createPreviewItem(file, index) {
         const previewItem = document.createElement('div');
         previewItem.className = 'preview-item';
+        previewItem.dataset.filename = file.name;
         
         previewItem.innerHTML = `
-            <img alt="Preview ${index + 1}">
+            <img alt="Preview ${file.name}">
             <span class="preview-filename">
-                ${file.name.length > 20 
-                    ? `${file.name.substring(0, 15)}...${file.name.split('.').pop()}` 
-                    : file.name}
+                ${this.truncateFilename(file.name)}
             </span>
         `;
         
-        if (imagePreview) imagePreview.appendChild(previewItem);
+        DOM.get('imagePreview').appendChild(previewItem);
         return previewItem;
-    }
-
-    async function generateBrandKit() {
-        if (uploadedFiles.length < 3) return;
+    },
+    truncateFilename(name, maxLength = 20) {
+        if (name.length <= maxLength) return name;
+        const ext = name.split('.').pop();
+        return `${name.substring(0, maxLength - ext.length - 3)}...${ext}`;
+    },
+    readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    },
+    async analyzeColors() {
+        if (this.uploadedFiles.length === 0 || this.isProcessing) return;
         
-        // Check for oversized files before upload
-        const oversizedFiles = uploadedFiles.filter(file => file.size > MAX_FILE_SIZE);
+        this.setProcessing(true);
+        try {
+            const formData = new FormData();
+            formData.append('image', this.uploadedFiles[0]);
+            
+            const response = await this.apiRequest('/api/analyze/colors', formData);
+            const { data } = response;
+            
+            // Update color inputs
+            this.updateColorInputs({
+                primary: data.palette[0],
+                secondary: data.palette[1],
+                accent: data.palette[2]
+            });
+            
+            this.showStatus('Colors extracted successfully!', 'success');
+            
+        } catch (error) {
+            console.error('Color analysis failed:', error);
+            this.showStatus('Color extraction failed. Please select manually.', 'error');
+        } finally {
+            this.setProcessing(false);
+        }
+    },
+    async analyzeFonts() {
+        if (this.uploadedFiles.length === 0 || this.isProcessing) return;
+        
+        this.setProcessing(true);
+        try {
+            const formData = new FormData();
+            formData.append('image', this.uploadedFiles[0]);
+            
+            const response = await this.apiRequest('/api/analyze/fonts', formData);
+            const { data } = response;
+            
+            this.showStatus(
+                `Suggested fonts: Heading (${data.fonts.heading}), Body (${data.fonts.body})`, 
+                'success'
+            );
+            
+        } catch (error) {
+            console.error('Font analysis failed:', error);
+            this.showStatus('Font detection failed. Using default fonts.', 'error');
+        } finally {
+            this.setProcessing(false);
+        }
+    },
+    async generateBrandKit() {
+        if (this.uploadedFiles.length < 3 || this.isProcessing) return;
+        
+        // Validate files before upload
+        const oversizedFiles = this.uploadedFiles.filter(f => f.size > MAX_FILE_SIZE);
         if (oversizedFiles.length > 0) {
-            showStatus(`Some files exceed 10MB limit: ${oversizedFiles.map(f => f.name).join(', ')}`, 'error');
+            this.showStatus(
+                `Files too large: ${oversizedFiles.map(f => f.name).join(', ')}`, 
+                'error'
+            );
             return;
         }
         
-        showLoading(true);
+        this.setProcessing(true);
         
         try {
             const formData = new FormData();
-            uploadedFiles.forEach(file => formData.append('images', file));
+            this.uploadedFiles.forEach(file => formData.append('images', file));
             
-            // Safely get values with fallbacks
-            formData.append('brandName', brandNameInput.value.trim() || 'Our Brand');
-            formData.append('tagline', brandTaglineInput.value.trim() || 'Innovating tomorrow');
-            formData.append('primaryColor', primaryColorInput.value || '#2A5CAA');
-            formData.append('secondaryColor', secondaryColorInput.value || '#F4B223');
+            // Add form data with fallbacks
+            formData.append('brandName', DOM.safeValue('brandName', 'Our Brand'));
+            formData.append('tagline', DOM.safeValue('brandTagline', 'Innovating tomorrow'));
+            formData.append('primaryColor', DOM.safeValue('primaryColor', DEFAULT_COLORS.primary));
+            formData.append('secondaryColor', DOM.safeValue('secondaryColor', DEFAULT_COLORS.secondary));
             
-            const response = await fetch('/api/generate-brand-kit', {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                const errorMsg = error.error || 'Failed to generate brand kit';
-                throw new Error(errorMsg.includes('File too large') 
-                    ? 'One or more files exceed 10MB limit' 
-                    : errorMsg);
-            }
-            
-            const blob = await response.blob();
-            downloadPDF(blob);
-            showStatus('Brand kit generated successfully!', 'success');
-            resetForm();
+            const response = await this.apiRequest('/api/generate-brand-kit', formData);
+            this.downloadPDF(response);
+            this.showStatus('Brand kit generated!', 'success');
+            this.resetForm();
             
         } catch (error) {
-            console.error('Generation error:', error);
-            showStatus(error.message || 'Failed to generate brand kit', 'error');
+            console.error('Generation failed:', error);
+            this.showStatus(
+                error.message.includes('File too large') 
+                    ? 'Files exceed 10MB limit' 
+                    : 'Failed to generate brand kit',
+                'error'
+            );
         } finally {
-            showLoading(false);
+            this.setProcessing(false);
         }
-    }
-
-    function downloadPDF(blob) {
+    },
+    async apiRequest(endpoint, body) {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            body
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Request failed');
+        }
+        
+        return response.json();
+    },
+    updateColorInputs(colors) {
+        const { primaryColorInput, secondaryColorInput } = DOM.elements;
+        if (colors.primary && primaryColorInput) primaryColorInput.value = colors.primary;
+        if (colors.secondary && secondaryColorInput) secondaryColorInput.value = colors.secondary;
+    },
+    downloadPDF(response) {
+        const blob = new Blob([response], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `brand-kit-${new Date().getTime()}.pdf`;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-    }
-
-    function resetForm() {
+        
+        // Cleanup
         setTimeout(() => {
-            uploadedFiles = [];
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+    },
+    resetForm() {
+        setTimeout(() => {
+            this.uploadedFiles = [];
+            this.toggleAnalysisButtons(false);
+            
+            const imagePreview = DOM.get('imagePreview');
             if (imagePreview) imagePreview.innerHTML = '';
+            
+            const fileInput = DOM.get('fileInput');
             if (fileInput) fileInput.value = '';
+            
+            const fileCount = DOM.get('fileCount');
             if (fileCount) fileCount.style.display = 'none';
         }, 3000);
-    }
-
-    function showLoading(show) {
-        if (generateBtn) generateBtn.disabled = show;
-        if (loadingIndicator) loadingIndicator.style.display = show ? 'flex' : 'none';
-        if (statusMessage && show) {
-            statusMessage.textContent = 'Analyzing brand elements and generating PDF...';
+    },
+    setProcessing(isProcessing) {
+        this.isProcessing = isProcessing;
+        const generateBtn = DOM.get('generateBtn');
+        const loadingIndicator = DOM.get('loadingIndicator');
+        const statusMessage = DOM.get('statusMessage');
+        
+        if (generateBtn) generateBtn.disabled = isProcessing;
+        if (loadingIndicator) loadingIndicator.style.display = isProcessing ? 'flex' : 'none';
+        if (statusMessage && isProcessing) {
+            statusMessage.textContent = 'Processing...';
         }
-    }
-
-    function showStatus(message, type, timeout = 5000) {
+    },
+    showStatus(message, type, timeout = 5000) {
+        const statusMessage = DOM.get('statusMessage');
         if (!statusMessage) return;
         
         statusMessage.textContent = message;
         statusMessage.className = `status ${type}`;
         
-        if (type === 'success' || timeout) {
+        if (timeout > 0) {
             setTimeout(() => {
                 if (statusMessage.textContent === message) {
                     statusMessage.textContent = '';
@@ -246,4 +370,13 @@ if (!dropZone || !fileInput || !generateBtn) {
             }, timeout);
         }
     }
-}
+};
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+    if (AppState.init()) {
+        console.log('Brand Kit Generator initialized');
+    } else {
+        console.error('Application failed to initialize');
+    }
+});
